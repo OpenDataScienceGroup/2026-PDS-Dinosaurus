@@ -12,3 +12,12 @@ Every Wednesday after lectures.
 
 Discord group - PDS final project 2026
 
+### How to contribute
+
+##### DO NOT UPLOAD THE DATA to the repository ! 
+Keep the data locally, so when you add or modify the repo the **strict** workflow is:
+
+- `git add $file1 $file2 ...`
+- `git commit -m  "Commit message"`
+- `git push -f` 
+
