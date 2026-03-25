@@ -1,13 +1,13 @@
 ### Tasks
 
 - [ ] EVERYONE: Get familiar with the dataset (csv file annotation_combined.csv) and read the paper about the data (everyone in the team)
-- [ ]  1) Preprocess the dataset: explore the metadata: how many images are cancer vs not cancer, are there missing values, what does the diagnostic column look like -> already write a short summary (1 person)
+- [ ]  1) Preprocess the dataset: explore the metadata: how many images are cancer vs not cancer, are there missing values, what does the diagnostic column look like -> already write a short summary (Marius)
 - [ ]  **Feature extraction**
-- [ ]  2) Asymmetry feature function (1 person): write asymmetry.py with function
-- [ ] 3)  Color feature function (2 people): write colour.py with function.
-- [ ] 4)  Border feature function (1 person): write border.py with function.
-- [ ]  Split data (training and test data)
-- [ ]  
+- [ ]  2) Asymmetry feature function (Aneta): write asymmetry.py with function
+- [ ] 3)  Colour feature function (Shirin & Søren): write colour.py with function.
+- [ ] 4)  Border feature function (Orfri): write border.py with function.
+- [ ] create the project pipeline skeleton (Marius)
+- [ ] split data (training and test data)
 - [ ] Start building the model
 - [ ] 
 
