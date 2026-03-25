@@ -6,7 +6,7 @@
 - [ ]  2) Asymmetry feature function (Aneta): write asymmetry.py with function
 - [ ] 3)  Colour feature function (Shirin & Søren): write colour.py with function.
 - [ ] 4)  Border feature function (Orfri): write border.py with function.
-- [ ] create the project pipeline skeleton (Marius)
+- [ ] create the project pipeline skeleton & test the provided model so we can compare (Marius)
 - [ ] split data (training and test data)
 - [ ] Start building the model
 - [ ] 
