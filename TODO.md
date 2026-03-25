@@ -1,8 +1,15 @@
 ### Tasks
 
 - [ ] Get familiar with the dataset (csv file annotation_combined.csv) and read the paper about the data (everyone in the team)
-- [ ] Preprocess the dataset 
+- [ ] Preprocess the dataset
+- [ ]  **Feature extraction**
+- [ ]  Symmetry feature
+- [ ]  Color feature
+- [ ]  Border feature
+- [ ]  Split data (training and test data)
+- [ ]  
 - [ ] Start building the model
+- [ ] 
 
 ### Meetings 
 
