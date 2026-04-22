@@ -82,7 +82,7 @@ def get_hsv_means(image, slic_segments):
         hsv_means (list): HSV mean values for each segment.
     '''
 
-    hsv_image = rgb2hsv(image)
+    hsv_image = rgb2hsv(image[:,:,0:3])
 
     max_segment_id = np.unique(slic_segments)[-1]
 
