@@ -182,3 +182,30 @@ def hsv_var(image, slic_segments):
     val_var = variance(val, sum(val)/n)
 
     return hue_var, sat_var, val_var
+
+    def get_color_features(image, mask):
+
+        slic = slic_segmentation(image, mask)
+
+        rgb_means = get_rgb_means(image, slic)
+
+        hsv_means = get_hsv_means(image, slic)
+
+        red_var, green_var, blue_var = rgb_var(image, slic)
+
+        hue_var, sat_var, val_var = hsv_var(image, slic)
+
+        return {
+        "mean_r": float(rgb_means[0]),
+        "mean_g": float(rgb_means[1]),
+        "mean_b": float(rgb_means[2]),
+        "std_r": float(numpy.std(red_var)),
+        "std_g": float(numpy.std(green_var)),
+        "std_b": float(numpy.std(blue_var)),
+        "mean_h": float(hsv_means[0]),
+        "mean_s": float(hsv_means[1]),
+        "mean_v": float(hsv_means[2]),
+        "std_h": float(numpy.std(hue_var)),
+        "std_s": float(numpy.std(sat_var)),
+        "std_v": float(numpy.std(val_var)),
+    }
