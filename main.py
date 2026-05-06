@@ -55,6 +55,8 @@ BASELINE_FEATURES = [
     "mean_r", "mean_g", "mean_b", "std_r", "std_g", "std_b",
     "mean_h", "mean_s", "mean_v", "std_h", "std_s", "std_v",
     "color_entropy",
+    "blue_veil_score",
+    "dominant_color_count",
 ] + [f"lbp_{i}" for i in range(16)]
 
 EXTENDED_FEATURES = BASELINE_FEATURES + ["hair_coverage", "penmark_coverage"]
