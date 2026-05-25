@@ -22,7 +22,7 @@ from pathlib import Path
 # allow running from project root or from src/
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from asymetry_A import get_asymmetry
+from asymmetry_features import get_asymmetry
 from color_features import get_color_features
 from border_features import get_border_features
 from texture_features import get_texture_features
@@ -33,7 +33,6 @@ from penmark_detection import penmark_coverage, remove_penmarks
 # Paths (override with env vars if needed)
 # ---------------------------------------------------------------------------
 DATA_PATH = Path(os.environ.get("DATA_PATH", Path(__file__).resolve().parent.parent / "data"))
-OUTPUT_CSV = Path(os.environ.get("OUTPUT_CSV", DATA_PATH / "features.csv"))
 
 IMG_DIR = DATA_PATH / "imgs"
 MASK_DIR = DATA_PATH / "masks"
