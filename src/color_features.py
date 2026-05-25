@@ -7,17 +7,26 @@ Features:
   - Color entropy (grayscale histogram entropy inside mask)
   - Blue-white veil score (fraction of lesion pixels where blue > red —
     a clinically recognised indicator of melanoma)
-  - Dominant color count via K-means (number of visually distinct colors
-    in the lesion, reflecting the dermoscopy color-count criterion)
+  - Melanoma color count (number of the six canonical melanoma-associated
+    colours present in the lesion, based on Kasmi & Mokrani 2016)
 """
 
 import numpy as np
 import cv2
 
-# Number of clusters for K-means color counting
-_KMEANS_K = 3
-_KMEANS_CRITERIA = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
-_KMEANS_ATTEMPTS = 10
+# Six canonical melanoma-associated colours in HSV (OpenCV scale: H 0-180, S 0-255, V 0-255)
+# Based on Kasmi & Mokrani (2016): white, black, red, light brown, dark brown, blue-grey
+MELANOMA_COLORS_HSV = {
+    "white":       ([0,   0,   200], [180, 30,  255]),
+    "black":       ([0,   0,   0],   [180, 255, 50 ]),
+    "red":         ([0,   100, 50],  [10,  255, 255]),
+    "light_brown": ([10,  50,  100], [20,  200, 200]),
+    "dark_brown":  ([5,   100, 50],  [15,  255, 150]),
+    "blue_grey":   ([90,  20,  50],  [130, 150, 200]),
+}
+
+# Minimum number of lesion pixels that must match a colour for it to count
+_MIN_COLOR_PIXELS = 10
 
 
 def get_color_features(image, mask):
@@ -25,32 +34,31 @@ def get_color_features(image, mask):
     Extract color statistics from the lesion region.
 
     Combines per-channel RGB/HSV statistics with clinically motivated
-    features: blue-white veil and dominant color count.
+    features: blue-white veil and melanoma colour count.
 
     Parameters
     ----------
     image : np.ndarray  (H, W, 3), float32 in [0,1] or uint8 in [0,255]
             Expected in RGB channel order.
-    mask  : np.ndarray  (H, W), any dtype – non-zero pixels are lesion
+    mask  : np.ndarray  (H, W), any dtype - non-zero pixels are lesion
 
     Returns
     -------
     dict with keys:
-        mean_r, mean_g, mean_b         – mean RGB per channel
-        std_r,  std_g,  std_b          – std RGB per channel
-        mean_h, mean_s, mean_v         – mean HSV per channel
-        std_h,  std_s,  std_v          – std HSV per channel
-        color_entropy                  – grayscale histogram entropy
-        blue_veil_score                – fraction of lesion pixels where blue > red
-                                         (approximates blue-white veil)
-        dominant_color_count           – number of distinct K-means color clusters
-                                         found in the lesion (k=3)
+        mean_r, mean_g, mean_b         - mean RGB per channel
+        std_r,  std_g,  std_b          - std RGB per channel
+        mean_h, mean_s, mean_v         - mean HSV per channel
+        std_h,  std_s,  std_v          - std HSV per channel
+        color_entropy                  - grayscale histogram entropy
+        blue_veil_score                - fraction of lesion pixels where blue > red
+        melanoma_color_count           - number of canonical melanoma colours present
+                                         (0-6, based on Kasmi & Mokrani 2016)
     Returns np.nan for every feature if mask is empty.
     """
     nan_keys = [
         "mean_r", "mean_g", "mean_b", "std_r", "std_g", "std_b",
         "mean_h", "mean_s", "mean_v", "std_h", "std_s", "std_v",
-        "color_entropy", "blue_veil_score", "dominant_color_count",
+        "color_entropy", "blue_veil_score", "melanoma_color_count",
     ]
 
     if mask is None or mask.sum() == 0:
@@ -69,8 +77,8 @@ def get_color_features(image, mask):
     r = img_uint8[:, :, 0][binary_mask].astype(float)
     g = img_uint8[:, :, 1][binary_mask].astype(float)
     b = img_uint8[:, :, 2][binary_mask].astype(float)
-    # low std indicates uniform colour — likely benign
-    # high std indicates variable colour — more likely malignant
+    # low std indicates uniform colour - likely benign
+    # high std indicates variable colour - more likely malignant
 
     # --- HSV features ---
     # HSV separates colour from brightness, making it more robust to lighting variation
@@ -79,7 +87,7 @@ def get_color_features(image, mask):
     h = hsv[:, :, 0][binary_mask].astype(float)  # hue: the colour itself
     s = hsv[:, :, 1][binary_mask].astype(float)  # saturation: colour intensity
     v = hsv[:, :, 2][binary_mask].astype(float)  # value: brightness
-    # cancer lesions are often unevenly pigmented — high saturation variance
+    # cancer lesions are often unevenly pigmented - high saturation variance
     # can be a good indicator of malignancy
 
     # --- Color entropy (grayscale histogram inside mask) ---
@@ -91,16 +99,16 @@ def get_color_features(image, mask):
 
     # --- Blue-white veil score ---
     # Fraction of lesion pixels where blue channel exceeds red channel.
-    # Blue-white veil is a recognised dermoscopy criterion for melanoma —
+    # Blue-white veil is a recognised dermoscopy criterion for melanoma -
     # a whitish-blue haze over the lesion caused by melanin in the dermis.
     # In RGB: channel 0 = red, channel 2 = blue (b > r approximates the veil)
     blue_veil_score = float(np.sum(b > r) / len(r)) if len(r) > 0 else np.nan
 
-    # --- Dominant color count via K-means ---
-    # Groups lesion pixels into k=3 colour clusters and counts how many
-    # are actually populated. Reflects the dermoscopy ABCD colour-count
-    # criterion — more distinct colours correlate with higher malignancy risk.
-    dominant_color_count = _count_dominant_colors(img_uint8, binary_mask)
+    # --- Melanoma colour count ---
+    # Count how many of the six canonical melanoma-associated colours are
+    # present in the lesion. More distinct colours correlate with higher
+    # malignancy risk (Kasmi & Mokrani 2016).
+    melanoma_color_count = _count_melanoma_colors(hsv, binary_mask)
 
     return {
         "mean_r": float(r.mean()),
@@ -117,38 +125,30 @@ def get_color_features(image, mask):
         "std_v":  float(v.std()),
         "color_entropy":        float(entropy),
         "blue_veil_score":      blue_veil_score,
-        "dominant_color_count": dominant_color_count,
+        "melanoma_color_count": melanoma_color_count,
     }
 
 
-def _count_dominant_colors(img_uint8, binary_mask):
+def _count_melanoma_colors(hsv_image, binary_mask):
     """
-    Run K-means on lesion pixels and return the number of populated clusters.
+    Count how many of the six canonical melanoma colours are present
+    in the lesion region.
 
     Parameters
     ----------
-    img_uint8   : np.ndarray (H, W, 3) uint8, RGB
+    hsv_image   : np.ndarray (H, W, 3) uint8, already converted to HSV
     binary_mask : np.ndarray (H, W) bool
 
     Returns
     -------
-    int – number of unique clusters found (≤ _KMEANS_K), or np.nan on failure
+    int - number of colours found (0 to 6)
     """
-    pixels = img_uint8[binary_mask].astype(np.float32)
-
-    # need at least k pixels to form k clusters
-    if len(pixels) < _KMEANS_K:
-        return np.nan
-
-    try:
-        _, labels, _ = cv2.kmeans(
-            pixels,
-            _KMEANS_K,
-            None,
-            _KMEANS_CRITERIA,
-            _KMEANS_ATTEMPTS,
-            cv2.KMEANS_RANDOM_CENTERS,
-        )
-        return int(len(np.unique(labels)))
-    except Exception:
-        return np.nan
+    lesion_hsv = hsv_image[binary_mask]
+    count = 0
+    for name, (lower, upper) in MELANOMA_COLORS_HSV.items():
+        lower = np.array(lower)
+        upper = np.array(upper)
+        in_range = np.all((lesion_hsv >= lower) & (lesion_hsv <= upper), axis=1)
+        if in_range.sum() >= _MIN_COLOR_PIXELS:
+            count += 1
+    return count
