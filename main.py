@@ -39,7 +39,9 @@ from sklearn.preprocessing import StandardScaler
 # Paths
 # ---------------------------------------------------------------------------
 PROJECT_ROOT = Path(__file__).resolve().parent
-FEATURES_CSV = PROJECT_ROOT / "data" / "features.csv"
+FEATURES_CSV         = PROJECT_ROOT / "data" / "features.csv"
+FEATURES_RAW_CSV     = PROJECT_ROOT / "data" / "features_raw.csv"
+FEATURES_CLEANED_CSV = PROJECT_ROOT / "data" / "features_cleaned.csv"
 MODELS_DIR = PROJECT_ROOT / "results" / "models"
 PREDICTIONS_DIR = PROJECT_ROOT / "results" / "predictions"
 
@@ -57,9 +59,11 @@ BASELINE_FEATURES = [
     "color_entropy",
     "blue_veil_score",
     "dominant_color_count",
-] + [f"lbp_{i}" for i in range(16)]
+]
 
 EXTENDED_FEATURES = BASELINE_FEATURES + ["hair_coverage", "penmark_coverage"]
+
+TEXTURE_FEATURES = EXTENDED_FEATURES + [f"lbp_{i}" for i in range(16)]
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -243,10 +247,11 @@ def main(features_path=FEATURES_CSV,
     model_path               : path to a saved .pkl bundle (used when load_model=True)
     load_model               : if True, skip training and load from model_path
     """
-    print(f"Loading features from {features_path}")
-    df = load_features(features_path)
-    print(f"  {len(df)} samples, {df['label'].sum()} malignant, "
-          f"{(df['label']==0).sum()} benign")
+    print(f"Loading features from {FEATURES_RAW_CSV} and {FEATURES_CLEANED_CSV}")
+    df_raw     = load_features(FEATURES_RAW_CSV)
+    df_cleaned = load_features(FEATURES_CLEANED_CSV)
+    print(f"  Raw:     {len(df_raw)} samples")
+    print(f"  Cleaned: {len(df_cleaned)} samples")
 
     # -----------------------------------------------------------------------
     # LOAD MODEL MODE
@@ -262,20 +267,20 @@ def main(features_path=FEATURES_CSV,
         col_means = bundle["col_means"]
         feature_cols = bundle["feature_cols"]
 
-        X_all = df[feature_cols].values
-        y_all = df["label"].values
+        X_all = df_cleaned[feature_cols].values
+        y_all = df_cleaned["label"].values
         evaluate_on_test(scaler, clf, col_means, X_all, y_all, feature_cols,
-                         df, type(clf).__name__, label="loaded")
+                         df_cleaned, type(clf).__name__, label="loaded")
         return
 
     # -----------------------------------------------------------------------
     # BASELINE pipeline
     # -----------------------------------------------------------------------
-    baseline_cols = [c for c in BASELINE_FEATURES if c in df.columns]
+    baseline_cols = [c for c in BASELINE_FEATURES if c in df_raw.columns]
     print(f"\n--- Baseline features ({len(baseline_cols)}) ---")
 
     (X_dev_b, y_dev, g_dev, X_test_b, y_test,
-     dev_df, test_df) = prepare_splits(df, baseline_cols)
+     dev_df_b, test_df_b) = prepare_splits(df_raw, baseline_cols)
 
     print("Cross-validating baseline classifiers …")
     cv_results_b = cross_validate(X_dev_b, y_dev, g_dev, CLASSIFIERS)
@@ -285,16 +290,30 @@ def main(features_path=FEATURES_CSV,
     # -----------------------------------------------------------------------
     # EXTENDED pipeline (adds shortcut features)
     # -----------------------------------------------------------------------
-    extended_cols = [c for c in EXTENDED_FEATURES if c in df.columns]
+    extended_cols = [c for c in EXTENDED_FEATURES if c in df_cleaned.columns]
     print(f"\n--- Extended features ({len(extended_cols)}) ---")
 
-    X_dev_e = dev_df[extended_cols].values
-    X_test_e = test_df[extended_cols].values
+    (X_dev_e, _, _, X_test_e, _,
+     dev_df_e, test_df_e) = prepare_splits(df_cleaned, extended_cols)
 
     print("Cross-validating extended classifiers …")
     cv_results_e = cross_validate(X_dev_e, y_dev, g_dev, CLASSIFIERS)
     print("\nExtended CV results:")
     print(cv_results_e.to_string(index=False))
+
+    # -----------------------------------------------------------------------
+    # TEXTURE pipeline
+    # -----------------------------------------------------------------------
+    texture_cols = [c for c in TEXTURE_FEATURES if c in df_cleaned.columns]
+    print(f"\n--- Texture features ({len(texture_cols)}) ---")
+
+    X_dev_t = dev_df_e[texture_cols].values
+    X_test_t = test_df_e[texture_cols].values
+
+    print("Cross-validating texture classifiers …")
+    cv_results_t = cross_validate(X_dev_t, y_dev, g_dev, CLASSIFIERS)
+    print("\nTexture CV results:")
+    print(cv_results_t.to_string(index=False))
 
     # -----------------------------------------------------------------------
     # Retrain best classifiers on full dev set and evaluate on test
@@ -307,15 +326,25 @@ def main(features_path=FEATURES_CSV,
     print("\nTraining final BASELINE model …")
     scaler_b, clf_b, means_b = train_final(X_dev_b, y_dev, CLASSIFIERS["RandomForest"], "RandomForest")
     evaluate_on_test(scaler_b, clf_b, means_b, X_test_b, y_test, baseline_cols,
-                     test_df, "RandomForest", label="baseline")
+                     test_df_b, "RandomForest", label="baseline")
     save_model(scaler_b, clf_b, means_b, baseline_cols, "RandomForest", "baseline")
 
     # --- Extended final model ---
     print("\nTraining final EXTENDED model …")
     scaler_e, clf_e, means_e = train_final(X_dev_e, y_dev, best_factory, best_clf_name)
     evaluate_on_test(scaler_e, clf_e, means_e, X_test_e, y_test, extended_cols,
-                     test_df, best_clf_name, label="extended")
+                     test_df_e, best_clf_name, label="extended")
     save_model(scaler_e, clf_e, means_e, extended_cols, best_clf_name, "extended")
+
+    # --- Texture final model ---
+    print("\nTraining final TEXTURE model …")
+    scaler_t, clf_t, means_t = train_final(X_dev_t, y_dev, best_factory, best_clf_name)
+    evaluate_on_test(scaler_t, clf_t, means_t, X_test_t, y_test, texture_cols,
+                     test_df_e, best_clf_name, label="texture")
+    save_model(scaler_t, clf_t, means_t, texture_cols, best_clf_name, "texture")
+
+    cv_path_t = PREDICTIONS_DIR / "cv_results_texture.csv"
+    cv_results_t.to_csv(cv_path_t, index=False)
 
     # Also train LogReg extended for comparison
     if best_clf_name != "LogisticRegression":
@@ -323,7 +352,7 @@ def main(features_path=FEATURES_CSV,
                                                    CLASSIFIERS["LogisticRegression"],
                                                    "LogisticRegression")
         evaluate_on_test(scaler_lr, clf_lr, means_lr, X_test_e, y_test, extended_cols,
-                         test_df, "LogisticRegression", label="extended")
+                         test_df_e, "LogisticRegression", label="extended")
         save_model(scaler_lr, clf_lr, means_lr, extended_cols, "LogisticRegression", "extended")
 
     # Save CV summaries
