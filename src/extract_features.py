@@ -2,16 +2,16 @@
 Feature extraction pipeline for PAD-UFES-20 skin lesion dataset.
 
 Reads all images + masks listed in metadata.csv, extracts features for each,
-and writes data/features.csv.
+and writes data/features_cleaned.csv (default) or data/features_raw.csv (--raw).
 
 Usage:
-    python src/extract_features.py
+    python src/extract_features.py #with preprocessing 
+    python src/extract_features.py --raw #without preprocessing
 
 Paths can be overridden via environment variables:
     DATA_PATH   (default: ./data/)
-    OUTPUT_CSV  (default: ./data/features.csv)
 """
-
+import argparse
 import os
 import sys
 import numpy as np
@@ -69,7 +69,7 @@ def load_image_and_mask(img_id):
     return img_rgb, mask
 
 
-def extract_features_for_row(row):
+def extract_features_for_row(row, apply_preprocessing=True):
     """
     Given a metadata row, load image+mask and extract all features.
     Returns a flat dict of feature values.
@@ -96,12 +96,13 @@ def extract_features_for_row(row):
     # ------------------------------------------------------------------
     processed_img = img_rgb.copy()
 
-    if pen_cov > 0.005:
-        _, processed_img = remove_penmarks(processed_img)
+    if apply_preprocessing:
+        if pen_cov > 0.005:
+            _, processed_img = remove_penmarks(processed_img)
 
-    proc_gray = cv2.cvtColor(processed_img, cv2.COLOR_RGB2GRAY)
-    if hair_cov > 0.01:
-        _, processed_img = remove_hair(processed_img, proc_gray, coverage=hair_cov)
+        proc_gray = cv2.cvtColor(processed_img, cv2.COLOR_RGB2GRAY)
+        if hair_cov > 0.01:
+            _, processed_img = remove_hair(processed_img, proc_gray, coverage=hair_cov)
 
     # ------------------------------------------------------------------
     # Feature extraction on the cleaned image
@@ -132,16 +133,29 @@ def extract_features_for_row(row):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="PAD-UFES-20 feature extraction")
+    parser.add_argument(
+        "--raw",
+        action="store_true",
+        help="Extract without preprocessing (baseline). Saves to features_raw.csv."
+    )
+    args = parser.parse_args()
+
+    apply_preprocessing = not args.raw
+    output_csv = DATA_PATH / ("features_raw.csv" if args.raw else "features_cleaned.csv")
+
     print(f"Loading metadata from {METADATA_CSV}")
     df = pd.read_csv(METADATA_CSV)
 
-    print(f"Extracting features for {len(df)} images …")
+    mode = "WITHOUT preprocessing (baseline)" if args.raw else "WITH preprocessing (extended/texture)"
+    print(f"Extracting features for {len(df)} images [{mode}] …")
+
     records = []
     failed = 0
 
     for i, row in df.iterrows():
         try:
-            feats = extract_features_for_row(row)
+            feats = extract_features_for_row(row, apply_preprocessing=apply_preprocessing)
             if feats is None:
                 failed += 1
                 continue
@@ -154,10 +168,10 @@ def main():
             print(f"  {i + 1}/{len(df)} done …")
 
     features_df = pd.DataFrame(records)
-    OUTPUT_CSV.parent.mkdir(parents=True, exist_ok=True)
-    features_df.to_csv(OUTPUT_CSV, index=False)
+    output_csv.parent.mkdir(parents=True, exist_ok=True)
+    features_df.to_csv(output_csv, index=False)
 
-    print(f"\nDone. {len(features_df)} rows saved to {OUTPUT_CSV}")
+    print(f"\nDone. {len(features_df)} rows saved to {output_csv}")
     print(f"Failed / missing: {failed}")
     print("\nClass distribution:")
     print(features_df["diagnostic"].value_counts())
