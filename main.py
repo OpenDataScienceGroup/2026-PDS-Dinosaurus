@@ -58,7 +58,7 @@ BASELINE_FEATURES = [
     "mean_h", "mean_s", "mean_v", "std_h", "std_s", "std_v",
     "color_entropy",
     "blue_veil_score",
-    "dominant_color_count",
+    "melanoma_color_count",
 ]
 
 EXTENDED_FEATURES = BASELINE_FEATURES + ["hair_coverage", "penmark_coverage"]
@@ -324,10 +324,10 @@ def main(features_path=FEATURES_CSV,
 
     # --- Baseline final model ---
     print("\nTraining final BASELINE model …")
-    scaler_b, clf_b, means_b = train_final(X_dev_b, y_dev, CLASSIFIERS["RandomForest"], "RandomForest")
+    scaler_b, clf_b, means_b = train_final(X_dev_b, y_dev, best_factory, best_clf_name)
     evaluate_on_test(scaler_b, clf_b, means_b, X_test_b, y_test, baseline_cols,
-                     test_df_b, "RandomForest", label="baseline")
-    save_model(scaler_b, clf_b, means_b, baseline_cols, "RandomForest", "baseline")
+                     test_df_b, best_clf_name, label="baseline")
+    save_model(scaler_b, clf_b, means_b, baseline_cols, best_clf_name, "baseline")
 
     # --- Extended final model ---
     print("\nTraining final EXTENDED model …")
