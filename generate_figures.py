@@ -29,11 +29,11 @@ mpl.rcParams["figure.dpi"] = 150
 mpl.rcParams["axes.spines.top"] = False
 mpl.rcParams["axes.spines.right"] = False
 
-CANCER_COLOR = "#c0392b"      # red
-BENIGN_COLOR = "#2980b9"      # blue
-LABEL_0_COLOR = "#2980b9"     # blue  - no hair
-LABEL_1_COLOR = "#e67e22"     # orange - some hair
-LABEL_2_COLOR = "#27ae60"     # green  - heavy hair
+CANCER_COLOR = "#c0392b"
+BENIGN_COLOR = "#2980b9"
+LABEL_0_COLOR = "#2980b9"
+LABEL_1_COLOR = "#e67e22"
+LABEL_2_COLOR = "#27ae60"
 
 # ---------------------------------------------------------------------------
 # Figure 1: Colour feature distributions by class
@@ -41,10 +41,10 @@ LABEL_2_COLOR = "#27ae60"     # green  - heavy hair
 df = pd.read_csv(DATA_PATH / "features_cleaned.csv")
 
 features_to_plot = [
-    ("mean_h",         "Mean Hue (H)"),
-    ("std_s",          "Std Saturation (S)"),
-    ("color_entropy",  "Colour Entropy"),
-    ("blue_veil_score","Blue-White Veil Score"),
+    ("mean_h",          "Mean Hue (H)"),
+    ("std_s",           "Std Saturation (S)"),
+    ("color_entropy",   "Colour Entropy"),
+    ("blue_veil_score", "Blue-White Veil Score"),
 ]
 
 fig, axes = plt.subplots(1, 4, figsize=(18, 4))
@@ -77,9 +77,10 @@ annotations = pd.read_csv(DATA_PATH / "annotations_combined.csv")
 features = pd.read_csv(DATA_PATH / "features_cleaned.csv")
 
 hair_cols = ["hair_1", "hair_2", "hair_3", "hair_4", "hair_5"]
-annotations["majority_hair"] = (
-    annotations[hair_cols].mode(axis=1)[0].astype(int)
-)
+
+mode_vals = annotations[hair_cols].mode(axis=1)[0]
+annotations = annotations[mode_vals.notna()].copy()
+annotations["majority_hair"] = mode_vals[mode_vals.notna()].astype(int)
 
 merged = annotations[["img_id", "majority_hair"]].merge(
     features[["img_id", "hair_coverage"]], on="img_id", how="inner"
