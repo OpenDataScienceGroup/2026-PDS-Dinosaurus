@@ -33,7 +33,7 @@ df = pd.read_csv(DATA_PATH / "features_cleaned.csv")
 hair_img_id = df.sort_values("hair_coverage", ascending=False).iloc[0]["img_id"]
 
 # pick image with most pen mark coverage
-pen_img_id = df.sort_values("penmark_coverage", ascending=False).iloc[0]["img_id"]
+pen_img_id = df.sort_values("penmark_coverage", ascending=False).iloc[10]["img_id"]
 
 def load_rgb(img_id):
     path = DATA_PATH / "imgs" / img_id
