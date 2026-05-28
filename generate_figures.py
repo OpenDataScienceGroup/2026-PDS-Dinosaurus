@@ -47,7 +47,7 @@ features_to_plot = [
     ("blue_veil_score", "Blue-White Veil Score"),
 ]
 
-fig, axes = plt.subplots(1, 4, figsize=(18, 4))
+fig, axes = plt.subplots(4, 1, figsize=(6, 16))
 
 for ax, (feat, title) in zip(axes, features_to_plot):
     for label, name, color in [
@@ -63,7 +63,7 @@ for ax, (feat, title) in zip(axes, features_to_plot):
     ax.legend(frameon=False)
 
 fig.suptitle("Colour feature distributions by class", fontsize=14,
-             fontweight="bold", y=1.02)
+             fontweight="bold", y=0.995)
 plt.tight_layout()
 plt.savefig(FIGURES_PATH / "colour_distributions.png",
             dpi=150, bbox_inches="tight")
